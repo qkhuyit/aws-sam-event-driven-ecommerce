@@ -1,0 +1,298 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Timeout: 5
+    Runtime: go1.x
+    Architectures:
+      - x86_64
+
+Resources:
+  RestApiGateway:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: dev
+      
+  ProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Product
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  ProductAttributeTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ProductAttribute
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: name
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  ProductAttributeValueTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ProductAttributeValue
+      AttributeDefinitions:
+        - AttributeName: product_id
+          AttributeType: S
+        - AttributeName: attribute_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: product_id
+          KeyType: HASH
+        - AttributeName: attribute_id
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  OrderTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Order
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES        
+  OrderDetailTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: OrderDetail
+      AttributeDefinitions:
+        - AttributeName: order_id
+          AttributeType: S
+        - AttributeName: product_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: order_id
+          KeyType: HASH
+        - AttributeName: product_id
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  ProductList:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ProductList
+      CodeUri: ./server/cmd/functions/products/get_list
+      Handler: product_list
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /products
+            Method: GET
+  ProductDetail:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ProductDetail
+      CodeUri: ./server/cmd/functions/products/get_detail
+      Handler: product_detail
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /products/{id}
+            Method: GET
+  ProductCreate:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ProductCreate
+      CodeUri: ./server/cmd/functions/products/create
+      Handler: product_create
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /products
+            Method: POST
+  ProductUpdate:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ProductUpdate
+      CodeUri: ./server/cmd/functions/products/update
+      Handler: product_update
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /products/{id}
+            Method: PUT
+  ProductDelete:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ProductDelete
+      CodeUri: ./server/cmd/functions/products/delete
+      Handler: product_delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /products/{id}
+            Method: DELETE
+
+  OrderCreate:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: OrderCreate
+      CodeUri: ./server/cmd/functions/orders/create
+      Handler: order_create
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /orders
+            Method: POST
+  OrderConfirm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: OrderConfirm
+      CodeUri: ./server/cmd/functions/orders/confirm
+      Handler: product_delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /orders/{id}/supplier-confirm
+            Method: POST
+  OrderCancel:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: OrderCancel
+      CodeUri: ./server/cmd/functions/orders/cancel
+      Handler: product_delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductAttributeValueTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderDetailTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApiGateway
+            Path: /orders/{id}/cancel
+            Method: POST
+
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: order_events
+
+Outputs:
+  EventBusName:
+    Value: !Ref EventBus
