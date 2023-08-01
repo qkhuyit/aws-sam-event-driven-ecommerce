@@ -3,13 +3,28 @@ package types
 type OrderStatus string
 
 const (
-	ORDER_CREATED OrderStatus = "CREATED"
-	CANCELED      OrderStatus = "CANCELED"
-	CONFIRMED     OrderStatus = "CONFIRMED"
-	DELIVERING    OrderStatus = "DELIVERING"
-	DELIVERED     OrderStatus = "DELIVERED"
-	COMPLETED     OrderStatus = "COMPLETED"
+	ORDER_STATUS_CREATED   OrderStatus = "CREATED"
+	ORDER_STATUS_CANCELED  OrderStatus = "CANCELED"
+	ORDER_STATUS_CONFIRMED OrderStatus = "ONFIRMED"
+	DELIVERING             OrderStatus = "DELIVERING"
+	DELIVERED              OrderStatus = "DELIVERED"
+	COMPLETED              OrderStatus = "COMPLETED"
 )
+
+func (o OrderStatus) ToString() string {
+	return string(o)
+}
+
+func NewOrderStatus(str string) OrderStatus {
+	switch str {
+	case "CREATED":
+		return ORDER_STATUS_CREATED
+	case "CANCELED":
+		return ORDER_STATUS_CANCELED
+	}
+
+	return ""
+}
 
 type Order struct {
 	Id         string `json:"id"  dynamodbav:"id"`

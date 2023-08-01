@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator/v10"
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/converters"
@@ -61,12 +62,36 @@ func (orderHandler orderHandlerImpl) Create(ctx context.Context, req events.APIG
 	return transform.SendSuccessWithData(newOrder)
 }
 
-func (orderHandler orderHandlerImpl) Confirm(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	//TODO implement me
-	panic("implement me")
+func (orderHandler orderHandlerImpl) Confirm(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	orderHandler.logger.Infoln("[orderHandlerImpl#Confirm] BEGIN confirm order")
+	defer orderHandler.logger.Infoln("[orderHandlerImpl#Confirm] END confirm order")
+
+	id, ok := req.PathParameters["id"]
+	if !ok {
+		return transform.SendAppError(errors.NewModelInvalidError(fmt.Errorf("id is require")))
+	}
+
+	err := orderHandler.orderService.Confirm(ctx, id)
+	if err != nil {
+		return transform.SendError(err)
+	}
+
+	return transform.SendSuccessWithData(nil)
 }
 
-func (orderHandler orderHandlerImpl) Cancel(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	//TODO implement me
-	panic("implement me")
+func (orderHandler orderHandlerImpl) Cancel(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	orderHandler.logger.Infoln("[orderHandlerImpl#Cancel] BEGIN cancel order")
+	defer orderHandler.logger.Infoln("[orderHandlerImpl#Cancel] END cancel order")
+
+	id, ok := req.PathParameters["id"]
+	if !ok {
+		return transform.SendAppError(errors.NewModelInvalidError(fmt.Errorf("id is require")))
+	}
+
+	err := orderHandler.orderService.Cancel(ctx, id)
+	if err != nil {
+		return transform.SendError(err)
+	}
+
+	return transform.SendSuccessWithData(nil)
 }
