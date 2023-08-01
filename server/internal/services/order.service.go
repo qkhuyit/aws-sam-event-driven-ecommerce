@@ -8,7 +8,6 @@ import (
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/types"
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/repositories"
 	"github.com/sirupsen/logrus"
-	"strings"
 	"time"
 )
 
@@ -46,9 +45,9 @@ func (orderService orderServiceImpl) ChangeStatus(ctx context.Context, id string
 		return err
 	}
 
-	if strings.Compare(order.Status, string(types.ORDER_STATUS_CREATED)) != 0 {
-		orderService.logger.Errorln("[orderServiceImpl#ChangeStatus] can't confirm order processed")
-		return errors.NewModelInvalidError(fmt.Errorf(""))
+	if !orderService.ValidateContextStatus(types.NewOrderStatus(order.Status), status) {
+		orderService.logger.Errorln("[orderServiceImpl#Confirm] can't change order status ", order.Status, " to ", status)
+		return errors.NewModelInvalidError(fmt.Errorf("can't change order status to %s", status))
 	}
 
 	err = orderService.orderRepository.Patch(ctx, id, map[string]interface{}{
@@ -104,4 +103,76 @@ func (orderService orderServiceImpl) Create(ctx context.Context, order types.Ord
 	}
 
 	return &order, err
+}
+
+func (orderService orderServiceImpl) ValidateContextStatus(oldStatus, newStatus types.OrderStatus) bool {
+	validTransitions := map[types.OrderStatus][]types.OrderStatus{
+		types.ORDER_STATUS_CREATED: {
+			types.ORDER_STATUS_CONFIRMED,
+			types.ORDER_STATUS_CANCELED,
+		},
+		types.ORDER_STATUS_CONFIRMED: {
+			types.ORDER_STATUS_CANCELED,
+		},
+		types.ORDER_STATUS_CANCELED: {
+			types.ORDER_STATUS_CREATED,
+		},
+		types.ORDER_STATUS_SUPPLIER_CANCELED: {
+			types.ORDER_STATUS_CREATED,
+			types.ORDER_STATUS_CONFIRMED,
+		},
+		types.ORDER_STATUS_SUPPLIER_CONFIRMED: {
+			types.ORDER_STATUS_SUPPLIER_CANCELED,
+		},
+		types.ORDER_STATUS_SUPPLIER_PACKING: {
+			types.ORDER_STATUS_SUPPLIER_CONFIRMED,
+		},
+		types.ORDER_STATUS_SUPPLIER_PACKED: {
+			types.ORDER_STATUS_SUPPLIER_PACKING,
+		},
+		types.ORDER_STATUS_WAITING_DELIVER_TO_TRANSPORT_VENDOR: {
+			types.ORDER_STATUS_SUPPLIER_PACKED,
+		},
+		types.ORDER_STATUS_DELIVERED_TO_TRANSPORT_VENDOR: {
+			types.ORDER_STATUS_WAITING_DELIVER_TO_TRANSPORT_VENDOR,
+		},
+		types.ORDER_STATUS_DELIVER_TO_TRANSPORT_VENDOR_FAILED: {
+			types.ORDER_STATUS_WAITING_DELIVER_TO_TRANSPORT_VENDOR,
+		},
+		types.ORDER_STATUS_DELEVERING: {
+			types.ORDER_STATUS_DELIVERED_TO_TRANSPORT_VENDOR,
+			types.ORDER_STATUS_DELVEVER_FALIED,
+		},
+		types.ORDER_STATUS_DELVEVER_FALIED: {
+			types.ORDER_STATUS_DELVEVER_REJECTED,
+			types.ORDER_STATUS_DELEVERING,
+		},
+		types.ORDER_STATUS_DELVEVER_REJECTED: {
+			types.ORDER_STATUS_DELEVERING,
+		},
+		types.ORDER_STATUS_ROLLBACK_PACK: {
+			types.ORDER_STATUS_DELVEVER_FALIED,
+			types.ORDER_STATUS_DELVEVER_REJECTED,
+		},
+		types.ORDER_STATUS_COMPLETED: {
+			types.ORDER_STATUS_DELEVERING,
+		},
+		types.ORDER_STATUS_FAILED: {
+			types.ORDER_STATUS_DELVEVER_FALIED,
+			types.ORDER_STATUS_DELVEVER_REJECTED,
+		},
+	}
+
+	allowedStatuses, exists := validTransitions[oldStatus]
+	if !exists {
+		return false
+	}
+
+	for _, allowedStatus := range allowedStatuses {
+		if newStatus == allowedStatus {
+			return true
+		}
+	}
+
+	return false
 }
