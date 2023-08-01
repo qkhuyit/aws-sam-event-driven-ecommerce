@@ -9,6 +9,7 @@ import (
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/errors"
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/models"
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/transform"
+	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/types"
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/common/utils"
 	"github.com/qkhuyit/aws-sam-event-driven-ecommerce/internal/services"
 	"github.com/sirupsen/logrus"
@@ -16,8 +17,7 @@ import (
 
 type OrderHandler interface {
 	Create(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
-	Confirm(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
-	Cancel(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
+	ChangeStatus(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
 }
 
 func NewOrderHandler(logger *logrus.Logger, orderService services.OrderService) OrderHandler {
@@ -34,6 +34,30 @@ type orderHandlerImpl struct {
 	orderService   services.OrderService
 	validate       *validator.Validate
 	orderConverter converters.OrderConverter
+}
+
+func (orderHandler orderHandlerImpl) ChangeStatus(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	orderHandler.logger.Infoln("[orderHandlerImpl#ChangeStatus] BEGIN change order status")
+	defer orderHandler.logger.Infoln("[orderHandlerImpl#ChangeStatus] END change order status")
+
+	id, ok := req.PathParameters["id"]
+	if !ok {
+		return transform.SendAppError(errors.NewModelInvalidError(fmt.Errorf("id is require")))
+	}
+
+	model, err := utils.JsonDeserialize[models.ChangeStatusRequestModel](req.Body)
+	if err != nil {
+		return transform.SendAppError(errors.NewModelInvalidError(err))
+	}
+
+	status := types.NewOrderStatus(model.Status)
+
+	err = orderHandler.orderService.ChangeStatus(ctx, id, status)
+	if err != nil {
+		return transform.SendError(err)
+	}
+
+	return transform.SendSuccessWithData(nil)
 }
 
 func (orderHandler orderHandlerImpl) Create(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -60,38 +84,4 @@ func (orderHandler orderHandlerImpl) Create(ctx context.Context, req events.APIG
 	}
 
 	return transform.SendSuccessWithData(newOrder)
-}
-
-func (orderHandler orderHandlerImpl) Confirm(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	orderHandler.logger.Infoln("[orderHandlerImpl#Confirm] BEGIN confirm order")
-	defer orderHandler.logger.Infoln("[orderHandlerImpl#Confirm] END confirm order")
-
-	id, ok := req.PathParameters["id"]
-	if !ok {
-		return transform.SendAppError(errors.NewModelInvalidError(fmt.Errorf("id is require")))
-	}
-
-	err := orderHandler.orderService.Confirm(ctx, id)
-	if err != nil {
-		return transform.SendError(err)
-	}
-
-	return transform.SendSuccessWithData(nil)
-}
-
-func (orderHandler orderHandlerImpl) Cancel(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	orderHandler.logger.Infoln("[orderHandlerImpl#Cancel] BEGIN cancel order")
-	defer orderHandler.logger.Infoln("[orderHandlerImpl#Cancel] END cancel order")
-
-	id, ok := req.PathParameters["id"]
-	if !ok {
-		return transform.SendAppError(errors.NewModelInvalidError(fmt.Errorf("id is require")))
-	}
-
-	err := orderHandler.orderService.Cancel(ctx, id)
-	if err != nil {
-		return transform.SendError(err)
-	}
-
-	return transform.SendSuccessWithData(nil)
 }

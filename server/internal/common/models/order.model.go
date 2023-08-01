@@ -8,6 +8,10 @@ type CreateOrderRequestModel struct {
 	Items    []OrderDetailModel `json:"items" validate:"required"`
 }
 
+type ChangeStatusRequestModel struct {
+	Status string `json:"status" validate:"required"`
+}
+
 type OrderDetailModel struct {
 	ProductId string `json:"product_id" validate:"required"`
 	Quantity  int    `json:"quantity" validate:"required,gt=1"`

@@ -239,12 +239,12 @@ Resources:
             ApiId: !Ref RestApiGateway
             Path: /orders
             Method: POST
-  OrderConfirm:
+  OrderChangeStatus:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: OrderConfirm
-      CodeUri: ./server/cmd/functions/orders/confirm
-      Handler: product_delete
+      FunctionName: OrderChangeStatus
+      CodeUri: ./server/cmd/functions/orders/change_status
+      Handler: order_change_status
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProductAttributeTable
@@ -261,31 +261,7 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref RestApiGateway
-            Path: /orders/{id}/supplier-confirm
-            Method: POST
-  OrderCancel:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: OrderCancel
-      CodeUri: ./server/cmd/functions/orders/cancel
-      Handler: product_delete
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProductAttributeTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProductAttributeValueTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref OrderTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref OrderDetailTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProductTable
-      Events:
-        CatchAll:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref RestApiGateway
-            Path: /orders/{id}/cancel
+            Path: /orders/{id}/status
             Method: POST
 
   EventBus:

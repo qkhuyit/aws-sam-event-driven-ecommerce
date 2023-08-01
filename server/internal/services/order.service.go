@@ -14,8 +14,7 @@ import (
 
 type OrderService interface {
 	Create(ctx context.Context, order types.Order, details []types.OrderDetail, discountCode *string) (*types.Order, error)
-	Cancel(ctx context.Context, id string) error
-	Confirm(ctx context.Context, id string) error
+	ChangeStatus(ctx context.Context, id string, status types.OrderStatus) error
 }
 
 func NewOrderService(orderRepository repositories.OrderRepository,
@@ -37,52 +36,26 @@ type orderServiceImpl struct {
 	logger                *logrus.Logger
 }
 
-func (orderService orderServiceImpl) Confirm(ctx context.Context, id string) error {
-	orderService.logger.Infoln("[orderServiceImpl#Confirm] BEGIN confirm order")
-	defer orderService.logger.Infoln("[orderServiceImpl#Confirm] END confirm order")
+func (orderService orderServiceImpl) ChangeStatus(ctx context.Context, id string, status types.OrderStatus) error {
+	orderService.logger.Infoln("[orderServiceImpl#ChangeStatus] BEGIN change order status")
+	defer orderService.logger.Infoln("[orderServiceImpl#ChangeStatus] END confirm order status")
 
 	order, err := orderService.orderRepository.FindById(ctx, id)
 	if err != nil {
-		orderService.logger.Errorln("[orderServiceImpl#Confirm] fail get order detail")
+		orderService.logger.Errorln("[orderServiceImpl#ChangeStatus] fail get order detail")
 		return err
 	}
 
 	if strings.Compare(order.Status, string(types.ORDER_STATUS_CREATED)) != 0 {
-		orderService.logger.Errorln("[orderServiceImpl#Confirm] can't confirm order processed")
+		orderService.logger.Errorln("[orderServiceImpl#ChangeStatus] can't confirm order processed")
 		return errors.NewModelInvalidError(fmt.Errorf(""))
 	}
 
 	err = orderService.orderRepository.Patch(ctx, id, map[string]interface{}{
-		"status": types.ORDER_STATUS_CONFIRMED.ToString(),
+		"status": status.ToString(),
 	})
 	if err != nil {
 		orderService.logger.Errorln("[orderServiceImpl#Confirm] fail save order.")
-		return err
-	}
-
-	return nil
-}
-
-func (orderService orderServiceImpl) Cancel(ctx context.Context, id string) error {
-	orderService.logger.Infoln("[orderServiceImpl#Cancel] BEGIN cancel order")
-	defer orderService.logger.Infoln("[orderServiceImpl#Cancel] END cancel order")
-
-	order, err := orderService.orderRepository.FindById(ctx, id)
-	if err != nil {
-		orderService.logger.Errorln("[orderServiceImpl#Cancel] fail get order detail")
-		return err
-	}
-
-	if strings.Compare(order.Status, string(types.ORDER_STATUS_CREATED)) != 0 {
-		orderService.logger.Errorln("[orderServiceImpl#Cancel] can't cancel order processed")
-		return errors.NewModelInvalidError(fmt.Errorf(""))
-	}
-
-	err = orderService.orderRepository.Patch(ctx, id, map[string]interface{}{
-		"status": types.ORDER_STATUS_CANCELED.ToString(),
-	})
-	if err != nil {
-		orderService.logger.Errorln("[orderServiceImpl#Cancel] fail save order.")
 		return err
 	}
 
@@ -114,6 +87,9 @@ func (orderService orderServiceImpl) Create(ctx context.Context, order types.Ord
 		details[idx].Price = product.Price
 		order.TotalPrice += details[idx].Price
 	}
+
+	//TODO apply discountCode
+	orderService.logger.Infoln("Discount code applied: ", discountCode)
 
 	_, err := orderService.orderRepository.Create(ctx, order)
 	if err != nil {
